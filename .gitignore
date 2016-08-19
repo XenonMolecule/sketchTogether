@@ -27,6 +27,7 @@ coverage
 build/Release
 
 # Dependency directories
+src/node_modules
 node_modules
 jspm_packages
 
