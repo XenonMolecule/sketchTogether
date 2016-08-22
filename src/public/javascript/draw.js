@@ -69,6 +69,23 @@ function createGroup(){
     socket.emit('createGroup',true);
 }
 
+//Download the current drawing
+function download(name){
+    var dataUrl = canvas.toDataURL();
+    //THANKS @Nippey from this question on stack overflow: http://stackoverflow.com/questions/2793751/how-can-i-create-download-link-in-html
+    /* Change MIME type to trick the browser to downlaod the file instead of displaying it */
+    dataUrl = dataUrl.replace(/^data:image\/[^;]*/, 'data:application/octet-stream');
+    /* In addition to <a>'s "download" attribute, you can define HTTP-style headers */
+    dataUrl = dataUrl.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename="mySketch.png"');
+    var link = document.getElementById('downloadLink');
+    link.href = dataUrl;
+    if(name!=undefined){
+        link.download = name+".png";
+    }
+    link.click();
+    link.download = "mySketch.png";
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //                          WEB SOCKET RECIEVING HANDLING
