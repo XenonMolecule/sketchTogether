@@ -13,7 +13,6 @@ function color(name, hex){
 
 //Init colors
 var black = new color("Black","#000"), red = new color("Red","#FF0000"), green = new color("Green","#00FF00"), blue = new color("Blue","#0000FF");
-
 var currentColor = black;
 
 //mouse object for all mouse variables
@@ -24,6 +23,8 @@ var mouse = {
     lastY : 0,
     down : false
 };
+
+var groupNum;
 
 //When the mouse is pressed on the canvas
 $("#drawingCanvas").on("mousemove",function(e){
@@ -99,7 +100,9 @@ socket.on('reqGroup',function(id){
 socket.on('accGroup',function(id){
     //TODO: MAKE A BETTER NOTIFICATION!!!
     alert('You are in group ' + id + '!');
+    groupNum = id;
     socket.emit('confirmGroup',id);
+    socket.emit('reqCanvas',true);
 });
 
 //alert user that they were declines access
@@ -107,3 +110,22 @@ socket.on('decGroup',function(id){
     //TODO: MAKE A BETTER NOTIFICATION!!!
     alert('Sorry, unfortunately, you were declined access to the group');
 })
+
+//Notify user of error of some sort
+socket.on('err',function(reason){
+    //TODO: MAKE A BETTER NOTIFICATION!!!
+    alert("Error: "+reason);
+});
+
+//Another user wants the current canvas design
+socket.on('reqCanvas',function(userID){
+    var dataUrl = canvas.toDataURL();
+    socket.emit('sendCanvas',{user:userID,dataURL:dataUrl});
+});
+
+//Get the canvas
+socket.on('recieveCanvas',function(dataURL){
+   var img = document.getElementById('groupCanvas');
+   img.src = dataURL;
+   context.drawImage(img,0,0);
+});

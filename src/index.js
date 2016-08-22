@@ -73,6 +73,19 @@ function group(id, leader){
     this.checkMember = function(member){
         return (this.members.indexOf(member) != -1);
     }
+    
+    //Send a message to everyone in the group
+    this.emitAll = function(event,data,sender){
+        if(this.checkMember(sender)) {
+            for(var i = 0; i < this.members.length; i ++){
+                if(this.members[i]!=sender){
+                    this.members[i].socket.emit(event,data);
+                }
+            }
+        } else {
+            sender.socket.emit('err',"Could not verify you as part of group "+id+ ", sorry about that!");
+        }
+    }
     groups.push(this);
 }
 
@@ -104,6 +117,13 @@ io.on('connection', function(socket){
     var me = new connection(socket,socket.id);
     var myGroup;
     users.push(me);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //                              GROUP METHODS
+    //
+    ////////////////////////////////////////////////////////////////////////////
+    
     //user wants to create a group
     socket.on('createGroup',function(data){
        if(me.groupID==undefined){
@@ -116,7 +136,9 @@ io.on('connection', function(socket){
             myGroup = new group(groupNum,me);
             me.groupID = groupNum;
             socket.emit('accGroup',me.groupID);
-       } 
+       } else {
+           socket.emit('err',"Looks like you are already in a group.  Please leave your current group before creating another.");
+       }
     });
     //user requested to join a group
     socket.on('reqGroup',function(data){
@@ -124,7 +146,7 @@ io.on('connection', function(socket){
             findGroup(data).leader.socket.emit('reqGroup',me.id);
         } else {
             //group could not be found
-            socket.emit('decGroup',data);
+            socket.emit('err',"Group "+data+" could not be found, sorry about that!");
         }
     });
     //group leader accepted a member
@@ -132,12 +154,16 @@ io.on('connection', function(socket){
         if(myGroup!=undefined){
             myGroup.addMember(findUser(id));
             findUser(id).socket.emit('accGroup',me.groupID);
+        } else {
+            socket.emit('err',"Could not find your group, sorry about that!");
         }
     });
     //group leader declined a member
     socket.on('decGroup',function(id){
         if(myGroup!=undefined){
             findUser(id).socket.emit('decGroup',me.groupID);
+        } else {
+            socket.emit('err',"Could not find your group, sorry about that!");
         }
     });
     //user giving group info
@@ -145,18 +171,39 @@ io.on('connection', function(socket){
        me.groupID = id;
        myGroup = findGroup(id);
     });
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //                        DRAWING/CANVAS METHODS
+    //
+    ////////////////////////////////////////////////////////////////////////////
+    
     //user is trying to draw a line
     socket.on('drawLine',function(data){
         if(myGroup!=undefined){
-            if(myGroup.checkMember(me)) {
-                for(var i = 0; i < myGroup.members.length; i ++){
-                    if(myGroup.members[i]!=me){
-                        myGroup.members[i].socket.emit('drawLine',data);
-                    }
-                }
-            }
+            myGroup.emitAll('drawLine',data,me);
         }
     });
+    
+    //New user needs current canvas
+    socket.on('reqCanvas',function(data){
+        if(myGroup!=undefined){
+            myGroup.leader.socket.emit('reqCanvas',me.id);
+        } else {
+            socket.emit('err',"Could not find your group's canvas");   
+        }
+    });
+    
+    //Group leader sent current canvas
+    socket.on('sendCanvas',function(data){
+       if(myGroup!=undefined){
+            var intendedUser = findUser(data.user);
+            if(myGroup.checkMember(intendedUser)){
+                intendedUser.socket.emit('recieveCanvas',data.dataURL);
+            }
+       } 
+    });
+    
     //Remove from the the user & group lists
     socket.on('disconnect',function(){
         users.splice(users.indexOf(me),1);
