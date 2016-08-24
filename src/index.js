@@ -7,8 +7,13 @@ var app = express();
 var http = require('http').Server(app);
 //INIT SOCKET.IO
 var io = require('socket.io')(http);
+
 //DRAWING VARS
-var MAX_WEIGHT = 100; //Max weight of pen to prevent lag
+const MAX_WEIGHT = 100; //Max weight of pen to prevent lag
+
+//MESSAGING VARS
+const MAX_MESSAGES = 100;
+const MAX_CHARS = 140;  //Be sure to change on client end too if you wish to change
 
 //PREPARE BOOTSTRAP STATIC LINK
 app.use('/bootstrap', express.static(__dirname+'/node_modules/bootstrap'));
@@ -44,11 +49,18 @@ function connection(socket,id){
 
 var users = [];
 
+//MESSAGE CONSTRUCTOR
+function message(author,msg){
+    this.author = author;
+    this.msg = msg;
+}
+
 //DRAWING GROUP CONSTRUCTOR
 function group(id, leader){
     this.id = id;
     this.leader = leader;
     this.members = [leader];
+    this.messages = [];
     this.addMember = function(member){
         this.members.push(member);
     }
@@ -86,6 +98,22 @@ function group(id, leader){
             }
         } else {
             sender.socket.emit('err',"Could not verify you as part of group "+id+ ", sorry about that!");
+        }
+    }
+    
+    //Add a message to the message array
+    this.addMessage = function(msg,author){
+        if(this.checkMember(author)){
+            if(this.messages.length>MAX_MESSAGES){
+                this.messages.splice(0,1);
+            }
+            if(author == this.leader){
+                msg.author = "[leader] "+msg.author;
+            }
+            this.messages.push(msg);
+            return true;
+        } else {
+            return false;
         }
     }
     groups.push(this);
@@ -207,6 +235,37 @@ io.on('connection', function(socket){
                 intendedUser.socket.emit('recieveCanvas',data.dataURL);
             }
        } 
+    });
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //                        CHAT/MESSAGING METHODS
+    //
+    ////////////////////////////////////////////////////////////////////////////
+    
+    //user sent message to the rest of the group
+    socket.on('sendMsg',function(msg){
+       if(myGroup!=undefined){
+            if(msg.length<=MAX_CHARS){
+                if(myGroup.addMessage((new message("Anonymous",msg)),me)) { //TODO: Make names
+                    myGroup.emitAll('recieveMsg',myGroup.messages[myGroup.messages.length-1],me);
+                    socket.emit('recieveMsg',myGroup.messages[myGroup.messages.length-1]);  //Send message to self so we can verify it sent properly
+                }
+            } else {
+                socket.emit('err','Message length longer than limit of ' + MAX_CHARS + ' characters, sorry about that!');   
+            }
+       } else {
+           socket.emit('err',"Could not find your group, sorry about that!");
+       }
+    });
+    
+    //user joined group and requested all of the past messages
+    socket.on('getMessages',function(data){
+        if(myGroup!=undefined){
+            if(myGroup.checkMember(me)){
+                socket.emit('recieveMessages',myGroup.messages);
+            }
+        }
     });
     
     //Remove from the the user & group lists

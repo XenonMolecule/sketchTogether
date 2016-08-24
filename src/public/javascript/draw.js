@@ -29,6 +29,12 @@ var mouse = {
 
 var groupNum;
 
+//Messages from the group
+var messages;
+
+//Max characters in a message
+const MAX_CHARS = 140;  //Be sure to change on server end too if you wish to change
+
 //When the mouse is pressed on the canvas
 $("#drawingCanvas").on("mousemove",function(e){
     mouse.currentX = e.offsetX;
@@ -110,6 +116,15 @@ function download(name){
     link.download = "mySketch.png";
 }
 
+function sendMsg(msg){
+    if(msg.length>MAX_CHARS){
+        //TODO: Make a better notification!!!
+        alert('Error: Message length longer than limit of ' + MAX_CHARS + ' characters, sorry about that!');
+    } else {
+        socket.emit('sendMsg',msg);
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //                          WEB SOCKET RECIEVING HANDLING
@@ -144,6 +159,7 @@ socket.on('accGroup',function(id){
     groupNum = id;
     socket.emit('confirmGroup',id);
     socket.emit('reqCanvas',true);
+    socket.emit('getMessages',true);
 });
 
 //alert user that they were declines access
@@ -169,4 +185,25 @@ socket.on('recieveCanvas',function(dataURL){
    var img = document.getElementById('groupCanvas');
    img.src = dataURL;
    context.drawImage(img,0,0);
+});
+
+//Requested group messages
+socket.on('recieveMessages',function(msgs){
+    messages = msgs;
+});
+
+//Got a new message
+socket.on('recieveMsg',function(msg){
+    //if the messages have all been recieved add the message
+    if(messages!=undefined){
+        messages.push(msg);
+    } else {
+        //otherwise check every .1 seconds until the other messages have loaded, then add message
+        var check = setInterval(function(){
+            if(messages!=undefined){
+                messages.push(msg);
+                clearInterval(check);
+            }
+        }, 100);
+    }
 });
