@@ -8,12 +8,15 @@ var context = canvas.getContext("2d");
 // hex (string) - The hexadecimal code of the color
 function color(name, hex){
     this.name = name || "color";
-    this.hex = hex || "FFF";
+    this.hex = hex || "#FFF";
 }
 
 //Init colors
 var black = new color("Black","#000"), red = new color("Red","#FF0000"), green = new color("Green","#00FF00"), blue = new color("Blue","#0000FF");
 var currentColor = black;
+
+//Line width
+var currentWeight = 1;
 
 //mouse object for all mouse variables
 var mouse = {
@@ -31,7 +34,7 @@ $("#drawingCanvas").on("mousemove",function(e){
     mouse.currentX = e.offsetX;
     mouse.currentY = e.offsetY;
     if(mouse.down){
-        drawLine(mouse.lastX,mouse.lastY,mouse.currentX,mouse.currentY,currentColor.hex);
+        drawLine(mouse.lastX,mouse.lastY,mouse.currentX,mouse.currentY,currentColor.hex,currentWeight);
     }
     mouse.lastX = e.offsetX;
     mouse.lastY = e.offsetY;
@@ -47,16 +50,37 @@ $(document).on("mouseup",function(e){
     mouse.down = false;
 });
 
-function drawLine(startX,startY,endX,endY,color){
+//Returns distance between two points
+function dist(startX,startY,endX,endY){
+    return Math.sqrt(Math.pow((endX-startX),2) + Math.pow((endY-startY),2));
+}
+
+function drawLine(startX,startY,endX,endY,color,weight){
     if(color==undefined){
         color = black.hex;
     }
-    context.beginPath();
-    context.strokeStyle = color;
-    context.moveTo(startX,startY);
-    context.lineTo(endX,endY);
-    context.stroke();
-    socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:color});
+    if(weight==undefined){
+        weight = 1;
+    }
+    //make lines for weight under three, circles of anything bigger
+    if(weight<=2){
+        context.lineWidth = weight;
+        context.beginPath();
+        context.strokeStyle = color;
+        context.moveTo(startX,startY);
+        context.lineTo(endX,endY);
+        context.stroke();
+    } else {
+        var amt = dist(startX,startY,endX,endY)/0.1;
+        context.beginPath();
+        context.fillStyle = color;
+        //draw a circle every 0.1 pixels at the desired size
+        for(var i = 0; i < amt; i+=1){
+            context.arc((startX+(i*((endX-startX)/amt))),(startY+(i*((endY-startY)/amt))),weight/2,0,2*Math.PI);
+        }
+        context.fill();
+    }
+    socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:color,wid:weight});
 }
 
 //attempt to join a group
@@ -79,7 +103,7 @@ function download(name){
     dataUrl = dataUrl.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename="mySketch.png"');
     var link = document.getElementById('downloadLink');
     link.href = dataUrl;
-    if(name!=undefined){
+    if(name!=undefined||name==""){
         link.download = name+".png";
     }
     link.click();
@@ -100,7 +124,7 @@ socket.on('newLeader',function(data){
 
 //other group member drew line
 socket.on('drawLine',function(data){
-    drawLine(data.sX,data.sY,data.eX,data.eY,data.col);
+    drawLine(data.sX,data.sY,data.eX,data.eY,data.col,data.wid);
 });
 
 //Someone is requesting to join the group

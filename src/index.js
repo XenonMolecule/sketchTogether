@@ -7,6 +7,8 @@ var app = express();
 var http = require('http').Server(app);
 //INIT SOCKET.IO
 var io = require('socket.io')(http);
+//DRAWING VARS
+var MAX_WEIGHT = 100; //Max weight of pen to prevent lag
 
 //PREPARE BOOTSTRAP STATIC LINK
 app.use('/bootstrap', express.static(__dirname+'/node_modules/bootstrap'));
@@ -181,6 +183,9 @@ io.on('connection', function(socket){
     //user is trying to draw a line
     socket.on('drawLine',function(data){
         if(myGroup!=undefined){
+            //limit pen weight
+            data.wid = data.wid>MAX_WEIGHT ? MAX_WEIGHT : data.wid;
+            data.wid = data.wid<1 ? 1 : data.wid;
             myGroup.emitAll('drawLine',data,me);
         }
     });
