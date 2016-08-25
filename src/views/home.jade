@@ -3,5 +3,5 @@ extends ./layout.jade
 block content
     //ADD EVERYTHING LATER
     img#groupCanvas(hidden)
-    canvas#drawingCanvas.drawingCanvas(width=700,height=700)
+    canvas#drawingCanvas.drawingCanvas(width=700,height=700,oncontextmenu='return false;')
     a#downloadLink(hidden,download='mySketch.png')

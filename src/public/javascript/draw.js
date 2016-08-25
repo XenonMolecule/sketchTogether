@@ -24,7 +24,8 @@ var mouse = {
     currentY : 0,
     lastX : 0,
     lastY : 0,
-    down : false
+    down : false,
+    right : false
 };
 
 var groupNum;
@@ -40,7 +41,7 @@ $("#drawingCanvas").on("mousemove",function(e){
     mouse.currentX = e.offsetX;
     mouse.currentY = e.offsetY;
     if(mouse.down){
-        drawLine(mouse.lastX,mouse.lastY,mouse.currentX,mouse.currentY,currentColor.hex,currentWeight);
+        drawLine(mouse.lastX,mouse.lastY,mouse.currentX,mouse.currentY,currentColor.hex,currentWeight,mouse.right,true);
     }
     mouse.lastX = e.offsetX;
     mouse.lastY = e.offsetY;
@@ -49,11 +50,14 @@ $("#drawingCanvas").on("mousemove",function(e){
 //mouse down on canvas
 $("#drawingCanvas").on("mousedown",function(e){
     mouse.down = true;
+    mouse.right = e.button == 2 ? true : false;
+    e.preventDefault();
 });
 
 //mouse up anywhere
 $(document).on("mouseup",function(e){
     mouse.down = false;
+    mouse.right = false;
 });
 
 //Returns distance between two points
@@ -61,12 +65,18 @@ function dist(startX,startY,endX,endY){
     return Math.sqrt(Math.pow((endX-startX),2) + Math.pow((endY-startY),2));
 }
 
-function drawLine(startX,startY,endX,endY,color,weight){
+//draws a line
+function drawLine(startX,startY,endX,endY,color,weight,erase,original){
     if(color==undefined){
         color = black.hex;
     }
     if(weight==undefined){
         weight = 1;
+    }
+    if(erase==true){
+        context.globalCompositeOperation = 'destination-out';
+    } else {
+        context.globalCompositeOperation = 'source-over';
     }
     //make lines for weight under three, circles of anything bigger
     if(weight<=2){
@@ -86,7 +96,9 @@ function drawLine(startX,startY,endX,endY,color,weight){
         }
         context.fill();
     }
-    socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:color,wid:weight});
+    if(original==true){
+        socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:color,wid:weight,era:erase,ori:false});
+    }
 }
 
 //attempt to join a group
@@ -139,7 +151,7 @@ socket.on('newLeader',function(data){
 
 //other group member drew line
 socket.on('drawLine',function(data){
-    drawLine(data.sX,data.sY,data.eX,data.eY,data.col,data.wid);
+    drawLine(data.sX,data.sY,data.eX,data.eY,data.col,data.wid,data.era);
 });
 
 //Someone is requesting to join the group
