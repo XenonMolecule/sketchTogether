@@ -214,6 +214,7 @@ io.on('connection', function(socket){
             //limit pen weight
             data.wid = data.wid>MAX_WEIGHT ? MAX_WEIGHT : data.wid;
             data.wid = data.wid<1 ? 1 : data.wid;
+            data.ori = false;
             myGroup.emitAll('drawLine',data,me);
         }
     });

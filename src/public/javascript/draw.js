@@ -65,8 +65,44 @@ function dist(startX,startY,endX,endY){
     return Math.sqrt(Math.pow((endX-startX),2) + Math.pow((endY-startY),2));
 }
 
+//converts a base 16 number to a base 10 number and returns the result
+function base16To10(base16Num){
+    var conversions = [['A','10'],['B','11'],['C','12'],['D','13'],['E','14'],['F','15']];
+    //convert to string
+    base16Num+="";
+    base16Num = base16Num.split('');
+    // converts letter from base 16 to number in base 10
+    function letterToNum(potentialLet){
+        for(var n = 0; n < conversions.length; n++){
+            if(potentialLet == conversions[n][0] || potentialLet == conversions[n][0].toLowerCase()){
+                return conversions[n][1];
+            }
+        }
+        return potentialLet;
+    }
+    var total = 0;
+    var index = 0;
+    for(var i = base16Num.length-1; i >= 0; i --){
+        base16Num[i] = letterToNum(base16Num[i]);
+        total+= ((base16Num[i]*1)*(Math.pow(16,index)));
+        index++;
+    }
+    return total;
+}
+
+//return an rgba value from a hex with extra values
+function convertAlphaColor(color){
+    if(color.length == 6){
+        //convert abbreviated hexes to normal hexes
+        color = "#"+color[1]+color[1]+color[2]+color[2]+color[3]+color[3];
+    }
+    return 'rgba('+base16To10(color[1]+color[2])+','+base16To10(color[3]+color[4])+','+base16To10(color[5]+color[6])+','+(base16To10(color[7]+color[8])/255)+')';
+    
+}
+
 //draws a line
 function drawLine(startX,startY,endX,endY,color,weight,erase,original){
+    var origColor = color;
     if(color==undefined){
         color = black.hex;
     }
@@ -78,6 +114,9 @@ function drawLine(startX,startY,endX,endY,color,weight,erase,original){
     } else {
         context.globalCompositeOperation = 'source-over';
     }
+    if(color.length>7||color.length==6){
+        color = convertAlphaColor(color);
+    }
     //make lines for weight under three, circles of anything bigger
     if(weight<=2){
         context.lineWidth = weight;
@@ -88,16 +127,28 @@ function drawLine(startX,startY,endX,endY,color,weight,erase,original){
         context.stroke();
     } else {
         var amt = dist(startX,startY,endX,endY)/0.1;
+        //if the color is transparent, replace it with a shadow
+        if(color[0] == 'r'){
+            context.shadowOffsetX = 10000;
+            context.shadowOffsetY = 10000;
+            context.shadowBlur = 20;
+            context.shadowColor = color;
+        } else {
+            context.shadowOffsetX = 0;
+            context.shadowOffsetY = 0;
+            context.shadowBlur = 0;
+            context.shadowColor = color;
+        }
         context.beginPath();
         context.fillStyle = color;
         //draw a circle every 0.1 pixels at the desired size
         for(var i = 0; i < amt; i+=1){
-            context.arc((startX+(i*((endX-startX)/amt))),(startY+(i*((endY-startY)/amt))),weight/2,0,2*Math.PI);
+            context.arc((startX+(i*((endX-startX)/amt)))-context.shadowOffsetX,(startY+(i*((endY-startY)/amt)))-context.shadowOffsetY,weight/2,0,2*Math.PI);
         }
         context.fill();
     }
     if(original==true){
-        socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:color,wid:weight,era:erase,ori:false});
+        socket.emit('drawLine',{sX:startX,sY:startY,eX:endX,eY:endY,col:origColor,wid:weight,era:erase,ori:false});
     }
 }
 
